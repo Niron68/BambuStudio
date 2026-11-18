@@ -247,6 +247,11 @@ public:
     ~OpenGLManager();
 
     bool init_gl(bool popup_error = true);
+    // To be called right after one of our canvases made our GL context current.
+    // Used to detect when another GL context (e.g. one of WebKitGTK/GDK under
+    // Wayland) is current instead of ours.
+    static void on_own_context_made_current();
+    static bool is_own_context_current();
     wxGLContext* init_glcontext(wxGLCanvas& canvas);
 
     const std::shared_ptr<GLShaderProgram>& get_shader(const std::string& shader_name) const { return m_shaders_manager.get_shader(shader_name); }

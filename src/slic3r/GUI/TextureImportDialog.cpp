@@ -4451,6 +4451,10 @@ void TexturePreviewCanvas::ensure_gl_ready()
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
+#ifdef GLEW_ERROR_NO_GLX_DISPLAY
+    if (err == GLEW_ERROR_NO_GLX_DISPLAY) // EGL context, core GL is loaded
+        err = GLEW_OK;
+#endif
     if (err != GLEW_OK) {
         BOOST_LOG_TRIVIAL(error) << "TexturePreviewCanvas: glewInit failed: "
                                  << glewGetErrorString(err);

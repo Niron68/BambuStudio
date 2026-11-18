@@ -87,6 +87,7 @@ using namespace nlohmann;
 #include <GLFW/glfw3.h>
 
 #ifdef __WXGTK__
+#include <wx/defs.h> // wxUSE_GLCANVAS_EGL
 #include <X11/Xlib.h>
 #endif
 
@@ -1670,7 +1671,11 @@ int CLI::run(int argc, char **argv)
     // On Linux, wxGTK has no support for Wayland, and the app crashes on
     // startup if gtk3 is used. This env var has to be set explicitly to
     // instruct the window manager to fall back to X server mode.
+    // Wayland is supported when wxWidgets is built with wxUSE_GLCANVAS_EGL,
+    // so only force X11 for GLX builds of wxWidgets.
+#if !wxUSE_GLCANVAS_EGL
     ::setenv("GDK_BACKEND", "x11", /* replace */ true);
+#endif
 
     ::setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", /* replace */ false);
 

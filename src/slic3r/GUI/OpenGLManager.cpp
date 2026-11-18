@@ -14,6 +14,9 @@
 #include <boost/algorithm/string/classification.hpp>
 
 #include <wx/glcanvas.h>
+#if defined(__WXGTK__) && wxUSE_GLCANVAS_EGL
+#include <EGL/egl.h>
+#endif
 #include <wx/msgdlg.h>
 #include "libslic3r/Log.hpp"
 
@@ -359,11 +362,47 @@ bool OpenGLManager::init()
     return s_b_initialized;
 }
 
+#if defined(__WXGTK__) && wxUSE_GLCANVAS_EGL
+static EGLContext s_own_egl_context = EGL_NO_CONTEXT;
+#endif
+
+void OpenGLManager::on_own_context_made_current()
+{
+#if defined(__WXGTK__) && wxUSE_GLCANVAS_EGL
+    s_own_egl_context = eglGetCurrentContext();
+#endif
+}
+
+bool OpenGLManager::is_own_context_current()
+{
+#if defined(__WXGTK__) && wxUSE_GLCANVAS_EGL
+    return s_own_egl_context != EGL_NO_CONTEXT && eglGetCurrentContext() == s_own_egl_context;
+#else
+    return true;
+#endif
+}
+
 bool OpenGLManager::init_gl(bool popup_error)
 {
     if (!m_gl_initialized) {
+        // Do not initialize (glew, shaders, ...) in somebody else's GL context:
+        // under Wayland, WebKitGTK leaves a GDK GL context current on the main
+        // thread before any of our canvases is shown, and everything created
+        // then would be unusable from our context. Wait until one of our
+        // canvases made our context current, as it already happens with X11
+        // (where no context is current at that point and glewInit() fails).
+        if (!is_own_context_current())
+            return false;
         glewExperimental = GL_TRUE;
         GLenum result = glewInit();
+#ifdef GLEW_ERROR_NO_GLX_DISPLAY
+        // With an EGL context (wxWidgets built with wxUSE_GLCANVAS_EGL, needed for
+        // Wayland) there is no current GLX display. glewInit() returns this error
+        // only after the core GL entry points were loaded successfully, and only
+        // the GLX extensions, which are not used, are missing.
+        if (result == GLEW_ERROR_NO_GLX_DISPLAY)
+            result = GLEW_OK;
+#endif
         if (result != GLEW_OK) {
             BOOST_LOG_TRIVIAL(error) << "Unable to init glew library";
             return false;

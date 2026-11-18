@@ -8621,10 +8621,17 @@ bool GLCanvas3D::_set_current(bool force_update)
     if (!m_context || !m_canvas) {
         return false;
     }
+#ifdef __WXGTK__
+    // Other code running in this process may make its own GL context current
+    // behind our back, e.g. WebKitGTK and GDK do so under Wayland. So never
+    // assume that our context is still current; re-binding it is cheap.
+    force_update = true;
+#endif
     if (m_dirty_context || force_update) {
         const auto rt = m_canvas->SetCurrent(*m_context);
         if (rt) {
             m_dirty_context = false;
+            OpenGLManager::on_own_context_made_current();
         }
         return rt;
     }
